@@ -5,9 +5,16 @@ import { join } from 'path'
 import { homedir } from 'os'
 
 const AGENT_HOOK_HOME = join(homedir(), '.agent-hook')
-const SETTINGS_FILE = '.claude/settings.local.json'
+const PROJECT_SETTINGS = '.claude/settings.local.json'
+const GLOBAL_SETTINGS = join(homedir(), '.claude', 'settings.json')
 const DEFAULT_ORG = 'smithery-ai'
 const DEFAULT_BRANCH = 'main'
+
+// Parse --global flag from args
+const rawArgs = process.argv.slice(2)
+const isGlobal = rawArgs.includes('--global') || rawArgs.includes('-g')
+const filteredArgs = rawArgs.filter((a) => a !== '--global' && a !== '-g')
+const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : PROJECT_SETTINGS
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,7 +55,8 @@ function readSettings(): Record<string, unknown> {
 }
 
 function writeSettings(settings: Record<string, unknown>) {
-  mkdirSync('.claude', { recursive: true })
+  const dir = isGlobal ? join(homedir(), '.claude') : '.claude'
+  mkdirSync(dir, { recursive: true })
   writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n')
 }
 
@@ -239,9 +247,9 @@ async function list() {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-const [command, ...args] = process.argv.slice(2)
+const [command, ...args] = filteredArgs
 
-const USAGE = `Usage: agent-hook <command> [hook]
+const USAGE = `Usage: agent-hook <command> [hook] [--global]
 
 Commands:
   add <hook>       Install a hook (e.g. smart-approve, user/repo, user/repo@branch)
@@ -249,8 +257,12 @@ Commands:
   info <hook>      Show hook manifest
   list             List installed hooks
 
+Flags:
+  --global, -g     Write hook config to ~/.claude/settings.json (default: .claude/settings.local.json)
+
 Examples:
   npx agent-hook add smart-approve
+  npx agent-hook add smart-approve --global
   npx agent-hook add smithery-ai/smart-approve@main
   npx agent-hook remove smart-approve
   npx agent-hook list`
