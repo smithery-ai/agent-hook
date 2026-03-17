@@ -3,73 +3,65 @@
 Install and manage Claude Code hooks from GitHub.
 
 ```sh
-npx agent-hook add smart-approve
+npx agent-hook add smithery-ai/smart-approve
 ```
 
 ## How it works
 
-Each hook is a GitHub repo with a `hook.json` manifest:
+Each hook is a GitHub repo with a `hook.json`:
 
 ```json
 {
-  "name": "my-hook",
-  "description": "What it does",
-  "files": ["hook.sh", "server.ts"],
-  "executable": ["hook.sh"],
   "hooks": {
     "PreToolUse": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/hook.sh"
+            "command": "$HOOK_DIR/scripts/my-hook.sh"
           }
         ]
       }
     ]
-  },
-  "requires": ["bun"]
+  }
 }
 ```
 
-`agent-hook add` fetches the manifest, downloads files to `~/.agent-hook/<hook-name>/`, and merges the hook configuration into `.claude/settings.local.json` (in your current project). Command paths in `hook.json` are automatically rewritten to point to the install directory.
+`agent-hook add` clones the repo to `~/.agent-hook/<name>/`, resolves `$HOOK_DIR` to the install path, and merges the hook config into `.claude/settings.local.json`.
 
 ## Commands
 
 ```sh
-# Install a hook (defaults to smithery-ai org)
-npx agent-hook add smart-approve
-
-# Install from any GitHub repo
-npx agent-hook add user/repo
-
-# Install from a specific branch
-npx agent-hook add user/repo@branch
-
-# Uninstall a hook (removes files + settings)
-npx agent-hook remove smart-approve
-
-# View a hook's manifest
-npx agent-hook info smart-approve
-
-# List installed hooks
+npx agent-hook add owner/repo
+npx agent-hook add owner/repo@branch
+npx agent-hook add owner/repo --global    # write to ~/.claude/settings.json
+npx agent-hook remove owner/repo
+npx agent-hook info owner/repo
 npx agent-hook list
 ```
 
 ## Creating a hook
 
 1. Create a GitHub repo
-2. Add a `hook.json` manifest (see schema above)
-3. Add your hook scripts
-4. Anyone can install it with `npx agent-hook add your-org/your-hook`
+2. Add scripts to a `scripts/` directory
+3. Add a `hook.json` with `$HOOK_DIR` placeholders
+4. Anyone can install with `npx agent-hook add your-org/your-hook`
 
-### hook.json schema
+### hook.json
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | Hook name |
-| `description` | string | One-line description |
-| `files` | string[] | Files to download to `~/.agent-hook/<name>/` |
-| `executable` | string[] | Files to `chmod +x` |
-| `hooks` | object | Claude Code hook config (merged into settings) |
-| `requires` | string[] | CLI tools that must be in PATH |
+Just the Claude Code hooks config with `$HOOK_DIR` as the install path placeholder:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "$HOOK_DIR/scripts/setup.sh"}]}
+    ],
+    "PreToolUse": [
+      {"hooks": [{"type": "command", "command": "$HOOK_DIR/scripts/gate.sh"}]}
+    ]
+  }
+}
+```
+
+All `.sh` files in `scripts/` are automatically made executable on install.

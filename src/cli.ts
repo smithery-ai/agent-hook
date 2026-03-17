@@ -1,37 +1,22 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync, rmSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+import { execSync } from 'child_process'
 
 const AGENT_HOOK_HOME = join(homedir(), '.agent-hook')
 const PROJECT_SETTINGS = '.claude/settings.local.json'
 const GLOBAL_SETTINGS = join(homedir(), '.claude', 'settings.json')
 const DEFAULT_BRANCH = 'main'
 
-// Parse --global flag from args
+// Parse --global flag
 const rawArgs = process.argv.slice(2)
 const isGlobal = rawArgs.includes('--global') || rawArgs.includes('-g')
 const filteredArgs = rawArgs.filter((a) => a !== '--global' && a !== '-g')
 const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : PROJECT_SETTINGS
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-async function fetchJSON(url: string) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
-  return res.json()
-}
-
-async function fetchText(url: string) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
-  return res.text()
-}
-
-function rawURL(repo: string, branch: string, file: string) {
-  return `https://raw.githubusercontent.com/${repo}/${branch}/${file}`
-}
 
 function parseRepo(name: string): { repo: string; branch: string; hookName: string } {
   const [repopart, branch] = name.split('@')
@@ -62,25 +47,21 @@ function writeSettings(settings: Record<string, unknown>) {
   writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n')
 }
 
-// Rewrite hook commands to point to ~/.agent-hook/<name>/
-function rewriteCommands(
+function resolveHooks(
   hooks: Record<string, unknown[]>,
   hookName: string,
 ): Record<string, unknown[]> {
   const dir = hookDir(hookName)
-  const rewritten: Record<string, unknown[]> = {}
+  const resolved: Record<string, unknown[]> = {}
 
   for (const [event, entries] of Object.entries(hooks)) {
-    rewritten[event] = entries.map((entry) => {
+    resolved[event] = entries.map((entry) => {
       const str = JSON.stringify(entry)
-      const replaced = str
-        .replace(/"\$CLAUDE_PROJECT_DIR"\/.claude\/hooks\//g, `${dir}/`)
-        .replace(/\$CLAUDE_PROJECT_DIR\/.claude\/hooks\//g, `${dir}/`)
-      return JSON.parse(replaced)
+      return JSON.parse(str.replace(/\$HOOK_DIR/g, dir))
     })
   }
 
-  return rewritten
+  return resolved
 }
 
 function mergeHooks(
@@ -107,60 +88,48 @@ function mergeHooks(
 
 async function add(name: string) {
   const { repo, branch, hookName } = parseRepo(name)
-  console.log(`Fetching hook manifest from ${repo}@${branch}...`)
-
-  const manifestURL = rawURL(repo, branch, 'hook.json')
-  const manifest = (await fetchJSON(manifestURL)) as {
-    name: string
-    description: string
-    files: string[]
-    executable?: string[]
-    hooks: Record<string, unknown[]>
-    requires?: string[]
-  }
-
-  console.log(`  ${manifest.name}: ${manifest.description}`)
-
-  // Check requirements
-  if (manifest.requires?.length) {
-    const { execSync } = await import('child_process')
-    for (const req of manifest.requires) {
-      try {
-        execSync(`which ${req}`, { stdio: 'ignore' })
-      } catch {
-        console.warn(`  Warning: '${req}' not found in PATH`)
-      }
-    }
-  }
-
-  // Download files to ~/.agent-hook/<hook-name>/
   const dir = hookDir(hookName)
-  mkdirSync(dir, { recursive: true })
 
-  for (const file of manifest.files) {
-    const url = rawURL(repo, branch, file)
-    console.log(`  Downloading ${file}...`)
-    const content = await fetchText(url)
-    const filePath = join(dir, file)
-    writeFileSync(filePath, content)
+  console.log(`Installing ${repo}@${branch}...`)
 
-    if (manifest.executable?.includes(file)) {
-      chmodSync(filePath, 0o755)
-    }
+  // Clone repo to ~/.agent-hook/<hook-name>/
+  mkdirSync(AGENT_HOOK_HOME, { recursive: true })
+  if (existsSync(dir)) {
+    rmSync(dir, { recursive: true, force: true })
   }
 
-  // Save manifest locally for remove/info
-  writeFileSync(join(dir, 'hook.json'), JSON.stringify(manifest, null, 2))
+  execSync(
+    `git clone --depth 1 --branch ${branch} https://github.com/${repo}.git ${dir}`,
+    { stdio: 'pipe' },
+  )
 
-  // Rewrite hook commands to point to install dir, then merge into settings
-  const rewritten = rewriteCommands(manifest.hooks, hookName)
+  // Read hook.json
+  const manifestPath = join(dir, 'hook.json')
+  if (!existsSync(manifestPath)) {
+    console.error(`Error: ${repo} has no hook.json`)
+    rmSync(dir, { recursive: true, force: true })
+    process.exit(1)
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as {
+    hooks: Record<string, unknown[]>
+  }
+
+  // chmod +x all .sh files in scripts/
+  const scriptsDir = join(dir, 'scripts')
+  if (existsSync(scriptsDir)) {
+    execSync(`chmod +x ${scriptsDir}/*.sh 2>/dev/null || true`, { stdio: 'pipe' })
+  }
+
+  // Resolve $HOOK_DIR and merge into settings
+  const resolved = resolveHooks(manifest.hooks, hookName)
   const settings = readSettings()
   const existingHooks = (settings.hooks || {}) as Record<string, unknown[]>
-  settings.hooks = mergeHooks(existingHooks, rewritten)
+  settings.hooks = mergeHooks(existingHooks, resolved)
   writeSettings(settings)
 
-  console.log(`\nInstalled ${manifest.name} to ${dir}/`)
-  console.log(`Updated ${SETTINGS_FILE} with hook configuration.`)
+  console.log(`Installed to ${dir}/`)
+  console.log(`Updated ${SETTINGS_FILE}`)
   console.log('\nRestart Claude Code for hooks to take effect.')
 }
 
@@ -174,15 +143,14 @@ async function remove(name: string) {
   }
 
   const manifest = JSON.parse(readFileSync(join(dir, 'hook.json'), 'utf-8')) as {
-    name: string
     hooks: Record<string, unknown[]>
   }
 
-  // Remove hooks from settings (using rewritten paths)
-  const rewritten = rewriteCommands(manifest.hooks, hookName)
+  // Remove hooks from settings
+  const resolved = resolveHooks(manifest.hooks, hookName)
   const settings = readSettings()
   const existingHooks = (settings.hooks || {}) as Record<string, unknown[]>
-  for (const [event, hooks] of Object.entries(rewritten)) {
+  for (const [event, hooks] of Object.entries(resolved)) {
     const current = existingHooks[event] || []
     const removals = new Set(hooks.map((h) => JSON.stringify(h)))
     existingHooks[event] = current.filter(
@@ -198,15 +166,14 @@ async function remove(name: string) {
   }
   writeSettings(settings)
 
-  // Remove hook directory
   rmSync(dir, { recursive: true, force: true })
 
-  console.log(`Removed ${manifest.name}.`)
+  console.log(`Removed ${hookName}.`)
   console.log(`Updated ${SETTINGS_FILE}.`)
 }
 
 async function info(name: string) {
-  const { hookName } = parseRepo(name)
+  const { hookName, repo, branch } = parseRepo(name)
   const dir = hookDir(hookName)
 
   if (existsSync(join(dir, 'hook.json'))) {
@@ -214,11 +181,8 @@ async function info(name: string) {
     console.log(JSON.stringify(manifest, null, 2))
     console.log(`\nInstalled at: ${dir}`)
   } else {
-    const { repo, branch } = parseRepo(name)
-    const manifestURL = rawURL(repo, branch, 'hook.json')
-    const manifest = await fetchJSON(manifestURL)
-    console.log(JSON.stringify(manifest, null, 2))
-    console.log('\n(not installed)')
+    console.log(`Hook '${hookName}' is not installed.`)
+    console.log(`Install with: npx agent-hook add ${repo}@${branch}`)
   }
 }
 
@@ -239,10 +203,7 @@ async function list() {
   for (const entry of entries) {
     const manifestPath = join(AGENT_HOOK_HOME, entry.name, 'hook.json')
     if (existsSync(manifestPath)) {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
-      console.log(`  ${manifest.name} — ${manifest.description}`)
-    } else {
-      console.log(`  ${entry.name} — (no manifest)`)
+      console.log(`  ${entry.name}`)
     }
   }
 }
@@ -265,7 +226,6 @@ Flags:
 Examples:
   npx agent-hook add smithery-ai/smart-approve
   npx agent-hook add smithery-ai/smart-approve --global
-  npx agent-hook add smithery-ai/smart-approve@main
   npx agent-hook remove smithery-ai/smart-approve
   npx agent-hook list`
 
