@@ -23,7 +23,7 @@ const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : isRepo ? REPO_SETTINGS : LOCA
 function parseRepo(name: string): { repo: string; branch: string; hookName: string } {
   const [repopart, branch] = name.split('@')
   if (!repopart.includes('/')) {
-    console.error(`Error: hook name must be in 'owner/repo' format (e.g. arjunkmrm/smart-approve)`)
+    console.error(`Error: hook name must be in 'owner/repo' format (e.g. owner/hook-name)`)
     process.exit(1)
   }
   const hookName = repopart.split('/').pop()!
@@ -233,10 +233,10 @@ Flags:
   (default)        Write to .claude/settings.local.json (personal)
 
 Examples:
-  npx agent-hook add arjunkmrm/smart-approve
-  npx agent-hook add arjunkmrm/smart-approve --repo
-  npx agent-hook add arjunkmrm/smart-approve --global
-  npx agent-hook remove arjunkmrm/smart-approve
+  npx agent-hook add owner/hook-name
+  npx agent-hook add owner/hook-name --repo
+  npx agent-hook add owner/hook-name --global
+  npx agent-hook remove owner/hook-name
   npx agent-hook list`
 
 if (!command || command === '--help' || command === '-h') {
