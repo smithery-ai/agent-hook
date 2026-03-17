@@ -7,7 +7,6 @@ import { homedir } from 'os'
 const AGENT_HOOK_HOME = join(homedir(), '.agent-hook')
 const PROJECT_SETTINGS = '.claude/settings.local.json'
 const GLOBAL_SETTINGS = join(homedir(), '.claude', 'settings.json')
-const DEFAULT_ORG = 'smithery-ai'
 const DEFAULT_BRANCH = 'main'
 
 // Parse --global flag from args
@@ -36,9 +35,12 @@ function rawURL(repo: string, branch: string, file: string) {
 
 function parseRepo(name: string): { repo: string; branch: string; hookName: string } {
   const [repopart, branch] = name.split('@')
-  const repo = repopart.includes('/') ? repopart : `${DEFAULT_ORG}/${repopart}`
-  const hookName = repo.split('/').pop()!
-  return { repo, branch: branch || DEFAULT_BRANCH, hookName }
+  if (!repopart.includes('/')) {
+    console.error(`Error: hook name must be in 'owner/repo' format (e.g. smithery-ai/smart-approve)`)
+    process.exit(1)
+  }
+  const hookName = repopart.split('/').pop()!
+  return { repo: repopart, branch: branch || DEFAULT_BRANCH, hookName }
 }
 
 function hookDir(hookName: string) {
@@ -252,7 +254,7 @@ const [command, ...args] = filteredArgs
 const USAGE = `Usage: agent-hook <command> [hook] [--global]
 
 Commands:
-  add <hook>       Install a hook (e.g. smart-approve, user/repo, user/repo@branch)
+  add <hook>       Install a hook (e.g. owner/repo, owner/repo@branch)
   remove <hook>    Uninstall a hook and remove settings
   info <hook>      Show hook manifest
   list             List installed hooks
@@ -261,10 +263,10 @@ Flags:
   --global, -g     Write hook config to ~/.claude/settings.json (default: .claude/settings.local.json)
 
 Examples:
-  npx agent-hook add smart-approve
-  npx agent-hook add smart-approve --global
+  npx agent-hook add smithery-ai/smart-approve
+  npx agent-hook add smithery-ai/smart-approve --global
   npx agent-hook add smithery-ai/smart-approve@main
-  npx agent-hook remove smart-approve
+  npx agent-hook remove smithery-ai/smart-approve
   npx agent-hook list`
 
 if (!command || command === '--help' || command === '-h') {
