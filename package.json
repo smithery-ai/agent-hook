@@ -1,0 +1,24 @@
+{
+  "name": "agent-hook",
+  "version": "0.1.0",
+  "description": "Install and manage Claude Code hooks from GitHub",
+  "type": "module",
+  "bin": {
+    "agent-hook": "./bin/cli.mjs"
+  },
+  "files": [
+    "bin/"
+  ],
+  "scripts": {
+    "build": "bun build src/cli.ts --outfile bin/cli.mjs --target node",
+    "dev": "bun src/cli.ts"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "hooks",
+    "ai",
+    "cli"
+  ],
+  "license": "MIT"
+}
