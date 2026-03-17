@@ -6,15 +6,17 @@ import { homedir } from 'os'
 import { execSync } from 'child_process'
 
 const AGENT_HOOK_HOME = join(homedir(), '.agent-hook')
-const PROJECT_SETTINGS = '.claude/settings.local.json'
+const LOCAL_SETTINGS = '.claude/settings.local.json'
+const REPO_SETTINGS = '.claude/settings.json'
 const GLOBAL_SETTINGS = join(homedir(), '.claude', 'settings.json')
 const DEFAULT_BRANCH = 'main'
 
-// Parse --global flag
+// Parse flags
 const rawArgs = process.argv.slice(2)
 const isGlobal = rawArgs.includes('--global') || rawArgs.includes('-g')
-const filteredArgs = rawArgs.filter((a) => a !== '--global' && a !== '-g')
-const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : PROJECT_SETTINGS
+const isRepo = rawArgs.includes('--repo') || rawArgs.includes('-r')
+const filteredArgs = rawArgs.filter((a) => !['--global', '-g', '--repo', '-r'].includes(a))
+const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : isRepo ? REPO_SETTINGS : LOCAL_SETTINGS
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -217,7 +219,7 @@ async function list() {
 
 const [command, ...args] = filteredArgs
 
-const USAGE = `Usage: agent-hook <command> [hook] [--global]
+const USAGE = `Usage: agent-hook <command> [hook] [flags]
 
 Commands:
   add <hook>       Install a hook (e.g. owner/repo, owner/repo@branch)
@@ -226,10 +228,13 @@ Commands:
   list             List installed hooks
 
 Flags:
-  --global, -g     Write hook config to ~/.claude/settings.json (default: .claude/settings.local.json)
+  --repo, -r       Write to .claude/settings.json (shared with team)
+  --global, -g     Write to ~/.claude/settings.json (all projects)
+  (default)        Write to .claude/settings.local.json (personal)
 
 Examples:
   npx agent-hook add arjunkmrm/smart-approve
+  npx agent-hook add arjunkmrm/smart-approve --repo
   npx agent-hook add arjunkmrm/smart-approve --global
   npx agent-hook remove arjunkmrm/smart-approve
   npx agent-hook list`
