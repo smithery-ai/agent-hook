@@ -32,7 +32,7 @@ Each hook is a GitHub repo with a `hook.json` manifest:
 }
 ```
 
-`agent-hook add` fetches the manifest, downloads the files to `.claude/hooks/`, and merges the hook configuration into `.claude/settings.local.json`.
+`agent-hook add` fetches the manifest, downloads files to `~/.agent-hook/<hook-name>/`, and merges the hook configuration into `.claude/settings.local.json` (in your current project). Command paths in `hook.json` are automatically rewritten to point to the install directory.
 
 ## Commands
 
@@ -51,6 +51,9 @@ npx agent-hook remove smart-approve
 
 # View a hook's manifest
 npx agent-hook info smart-approve
+
+# List installed hooks
+npx agent-hook list
 ```
 
 ## Creating a hook
@@ -66,7 +69,7 @@ npx agent-hook info smart-approve
 |-------|------|-------------|
 | `name` | string | Hook name |
 | `description` | string | One-line description |
-| `files` | string[] | Files to download to `.claude/hooks/` |
+| `files` | string[] | Files to download to `~/.agent-hook/<name>/` |
 | `executable` | string[] | Files to `chmod +x` |
 | `hooks` | object | Claude Code hook config (merged into settings) |
 | `requires` | string[] | CLI tools that must be in PATH |
