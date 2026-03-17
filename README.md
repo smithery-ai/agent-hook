@@ -3,7 +3,7 @@
 Install and manage Claude Code hooks from GitHub.
 
 ```sh
-npx agent-hook add smithery-ai/smart-approve
+npx agent-hook add arjunkmrm/smart-approve
 ```
 
 ## How it works

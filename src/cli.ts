@@ -21,7 +21,7 @@ const SETTINGS_FILE = isGlobal ? GLOBAL_SETTINGS : PROJECT_SETTINGS
 function parseRepo(name: string): { repo: string; branch: string; hookName: string } {
   const [repopart, branch] = name.split('@')
   if (!repopart.includes('/')) {
-    console.error(`Error: hook name must be in 'owner/repo' format (e.g. smithery-ai/smart-approve)`)
+    console.error(`Error: hook name must be in 'owner/repo' format (e.g. arjunkmrm/smart-approve)`)
     process.exit(1)
   }
   const hookName = repopart.split('/').pop()!
@@ -229,9 +229,9 @@ Flags:
   --global, -g     Write hook config to ~/.claude/settings.json (default: .claude/settings.local.json)
 
 Examples:
-  npx agent-hook add smithery-ai/smart-approve
-  npx agent-hook add smithery-ai/smart-approve --global
-  npx agent-hook remove smithery-ai/smart-approve
+  npx agent-hook add arjunkmrm/smart-approve
+  npx agent-hook add arjunkmrm/smart-approve --global
+  npx agent-hook remove arjunkmrm/smart-approve
   npx agent-hook list`
 
 if (!command || command === '--help' || command === '-h') {
