@@ -88,7 +88,7 @@ PRs welcome. To develop locally:
 ```sh
 git clone https://github.com/smithery-ai/agent-hook.git
 cd agent-hook
-npm install
+bun install
 bun run dev -- add owner/repo   # test locally
 bun run build                    # build bin/cli.mjs
 ```
