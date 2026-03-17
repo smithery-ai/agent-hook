@@ -64,7 +64,7 @@ npx agent-hook add owner/repo --global     # all projects
 
 ### hook.json
 
-Just the Claude Code hooks config with `$HOOK_DIR` as the install path placeholder:
+Claude Code hooks config with `$HOOK_DIR` as the install path placeholder:
 
 ```json
 {
@@ -80,3 +80,19 @@ Just the Claude Code hooks config with `$HOOK_DIR` as the install path placehold
 ```
 
 All `.sh` files in `scripts/` are automatically made executable on install.
+
+## Contributing
+
+PRs welcome. To develop locally:
+
+```sh
+git clone https://github.com/smithery-ai/agent-hook.git
+cd agent-hook
+npm install
+bun run dev -- add owner/repo   # test locally
+bun run build                    # build bin/cli.mjs
+```
+
+## License
+
+MIT
