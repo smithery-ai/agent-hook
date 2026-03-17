@@ -98,10 +98,15 @@ async function add(name: string) {
     rmSync(dir, { recursive: true, force: true })
   }
 
-  execSync(
-    `git clone --depth 1 --branch ${branch} https://github.com/${repo}.git ${dir}`,
-    { stdio: 'pipe' },
-  )
+  try {
+    execSync(
+      `git clone --depth 1 --branch ${branch} https://github.com/${repo}.git ${dir}`,
+      { stdio: 'pipe' },
+    )
+  } catch {
+    console.error(`Error: failed to clone ${repo}. Check the repo exists and is accessible.`)
+    process.exit(1)
+  }
 
   // Read hook.json
   const manifestPath = join(dir, 'hook.json')
