@@ -3,7 +3,7 @@
 Install and manage Claude Code hooks from GitHub.
 
 ```sh
-npx agent-hook add arjunkmrm/smart-approve
+npx agent-hook add owner/hook-name
 ```
 
 ## How it works
@@ -27,17 +27,32 @@ Each hook is a GitHub repo with a `hook.json`:
 }
 ```
 
-`agent-hook add` clones the repo to `~/.agent-hook/<name>/`, resolves `$HOOK_DIR` to the install path, and merges the hook config into `.claude/settings.local.json`.
+`agent-hook add` clones the repo to `~/.agent-hook/<name>/`, resolves `$HOOK_DIR` to the install path, and merges the hook config into your settings.
 
 ## Commands
 
 ```sh
 npx agent-hook add owner/repo
 npx agent-hook add owner/repo@branch
-npx agent-hook add owner/repo --global    # write to ~/.claude/settings.json
 npx agent-hook remove owner/repo
 npx agent-hook info owner/repo
 npx agent-hook list
+```
+
+## Settings targets
+
+By default, hook config is written to `.claude/settings.local.json` (personal, gitignored). You can change the target:
+
+| Flag | File | Scope |
+|------|------|-------|
+| _(default)_ | `.claude/settings.local.json` | Personal, gitignored |
+| `--repo` / `-r` | `.claude/settings.json` | Shared with team |
+| `--global` / `-g` | `~/.claude/settings.json` | All projects |
+
+```sh
+npx agent-hook add owner/repo              # personal
+npx agent-hook add owner/repo --repo       # shared with team
+npx agent-hook add owner/repo --global     # all projects
 ```
 
 ## Creating a hook
